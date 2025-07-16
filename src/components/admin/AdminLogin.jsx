@@ -17,12 +17,7 @@ const AdminLogin = () => {
   const [error, setError] = useState('')
   const [showPassword, setShowPassword] = useState(false)
 
-  const API_BASE_URL = (
-    process.env.NODE_ENV === "production"
-      ? "https://58hpi8c7z355.manus.space"
-      : "http://localhost:5001"
-  )
-
+  const API_BASE_URL = "https://5001-iubokf401j1pqbe8vstig-2b848cf1.manusvm.computer"
   const handleChange = (e) => {
     setFormData({
       ...formData,

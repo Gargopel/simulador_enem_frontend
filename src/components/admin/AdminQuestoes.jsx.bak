@@ -1,0 +1,908 @@
+import { useState, useEffect } from 'react'
+import { useNavigate } from 'react-router-dom'
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
+import { Textarea } from '@/components/ui/textarea'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
+import { Alert, AlertDescription } from '@/components/ui/alert'
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog'
+import { 
+  Target, 
+  Search, 
+  ArrowLeft,
+  Plus,
+  Edit,
+  Trash2,
+  Eye,
+  Filter,
+  Download,
+  Upload,
+  ChevronLeft,
+  ChevronRight,
+  AlertTriangle,
+  CheckCircle
+} from 'lucide-react'
+
+const AdminQuestoes = () => {
+  const navigate = useNavigate()
+  const [questoes, setQuestoes] = useState([])
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState('')
+  const [success, setSuccess] = useState('')
+  const [search, setSearch] = useState('')
+  const [filtros, setFiltros] = useState({
+    area: '',
+    disciplina: '',
+    dificuldade: ''
+  })
+  const [pagination, setPagination] = useState({
+    page: 1,
+    pages: 1,
+    total: 0,
+    per_page: 20
+  })
+  const [showCreateModal, setShowCreateModal] = useState(false)
+  const [showEditModal, setShowEditModal] = useState(false)
+  const [showViewModal, setShowViewModal] = useState(false)
+  const [selectedQuestao, setSelectedQuestao] = useState(null)
+  const [formData, setFormData] = useState({
+    enunciado: '',
+    alternativas: ['', '', '', '', ''],
+    resposta_correta: '',
+    area_conhecimento: '',
+    disciplina: '',
+    dificuldade: '',
+    explicacao: '',
+    fonte: '',
+    ano: ''
+  })
+
+  const API_BASE_URL = "https://5001-iubokf401j1pqbe8vstig-2b848cf1.manusvm.computer"
+  const areas = ['Linguagens', 'Ciências Humanas', 'Ciências da Natureza', 'Matemática']
+  const dificuldades = ['Facil', 'Medio', 'Dificil']
+  const alternativaLabels = ['A', 'B', 'C', 'D', 'E']
+
+  useEffect(() => {
+    // Verificar se está logado
+    const token = localStorage.getItem('adminToken')
+    if (!token) {
+      navigate('/admin/login')
+      return
+    }
+
+    loadQuestoes()
+  }, [navigate, pagination.page, search, filtros])
+
+  const getAuthHeaders = () => {
+    const token = localStorage.getItem('adminToken')
+    return {
+      'Authorization': `Bearer ${token}`,
+      'Content-Type': 'application/json'
+    }
+  }
+
+  const loadQuestoes = async () => {
+    try {
+      setLoading(true)
+      const params = new URLSearchParams({
+        page: pagination.page,
+        per_page: pagination.per_page,
+        ...(search && { search }),
+        ...(filtros.area && { area: filtros.area }),
+        ...(filtros.disciplina && { disciplina: filtros.disciplina }),
+        ...(filtros.dificuldade && { dificuldade: filtros.dificuldade })
+      })
+
+      const response = await fetch(`${API_BASE_URL}/admin/questoes?${params}`, {
+        headers: getAuthHeaders()
+      })
+
+      if (response.ok) {
+        const data = await response.json()
+        setQuestoes(data.questoes)
+        setPagination(data.pagination)
+      } else if (response.status === 401) {
+        navigate('/admin/login')
+      } else {
+        setError('Erro ao carregar questões')
+      }
+    } catch (error) {
+      console.error('Erro ao carregar questões:', error)
+      setError('Erro de conexão')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const handleSearchChange = (e) => {
+    setSearch(e.target.value)
+    setPagination(prev => ({ ...prev, page: 1 }))
+  }
+
+  const handleFilterChange = (key, value) => {
+    setFiltros(prev => ({ ...prev, [key]: value }))
+    setPagination(prev => ({ ...prev, page: 1 }))
+  }
+
+  const resetForm = () => {
+    setFormData({
+      enunciado: '',
+      alternativas: ['', '', '', '', ''],
+      resposta_correta: '',
+      area_conhecimento: '',
+      disciplina: '',
+      dificuldade: '',
+      explicacao: '',
+      fonte: '',
+      ano: ''
+    })
+  }
+
+  const handleCreateQuestao = async (e) => {
+    e.preventDefault()
+    try {
+      const response = await fetch(`${API_BASE_URL}/admin/questoes`, {
+        method: 'POST',
+        headers: getAuthHeaders(),
+        body: JSON.stringify(formData)
+      })
+
+      const data = await response.json()
+
+      if (response.ok) {
+        setSuccess('Questão criada com sucesso!')
+        setShowCreateModal(false)
+        resetForm()
+        loadQuestoes()
+      } else {
+        setError(data.error || 'Erro ao criar questão')
+      }
+    } catch (error) {
+      console.error('Erro ao criar questão:', error)
+      setError('Erro de conexão')
+    }
+  }
+
+  const handleEditQuestao = async (e) => {
+    e.preventDefault()
+    try {
+      const response = await fetch(`${API_BASE_URL}/admin/questoes/${selectedQuestao.id}`, {
+        method: 'PUT',
+        headers: getAuthHeaders(),
+        body: JSON.stringify(formData)
+      })
+
+      const data = await response.json()
+
+      if (response.ok) {
+        setSuccess('Questão atualizada com sucesso!')
+        setShowEditModal(false)
+        resetForm()
+        setSelectedQuestao(null)
+        loadQuestoes()
+      } else {
+        setError(data.error || 'Erro ao atualizar questão')
+      }
+    } catch (error) {
+      console.error('Erro ao atualizar questão:', error)
+      setError('Erro de conexão')
+    }
+  }
+
+  const handleDeleteQuestao = async (questaoId) => {
+    if (window.confirm('Tem certeza que deseja deletar esta questão? Esta ação não pode ser desfeita.')) {
+      try {
+        const response = await fetch(`${API_BASE_URL}/admin/questoes/${questaoId}`, {
+          method: 'DELETE',
+          headers: getAuthHeaders()
+        })
+
+        if (response.ok) {
+          setSuccess('Questão deletada com sucesso!')
+          loadQuestoes()
+        } else {
+          const data = await response.json()
+          setError(data.error || 'Erro ao deletar questão')
+        }
+      } catch (error) {
+        console.error('Erro ao deletar questão:', error)
+        setError('Erro de conexão')
+      }
+    }
+  }
+
+  const openEditModal = (questao) => {
+    setSelectedQuestao(questao)
+    setFormData({
+      enunciado: questao.enunciado,
+      alternativas: questao.alternativas,
+      resposta_correta: questao.resposta_correta,
+      area_conhecimento: questao.area_conhecimento,
+      disciplina: questao.disciplina,
+      dificuldade: questao.dificuldade,
+      explicacao: questao.explicacao || '',
+      fonte: questao.fonte || '',
+      ano: questao.ano || ''
+    })
+    setShowEditModal(true)
+  }
+
+  const openViewModal = (questao) => {
+    setSelectedQuestao(questao)
+    setShowViewModal(true)
+  }
+
+  const changePage = (newPage) => {
+    setPagination(prev => ({ ...prev, page: newPage }))
+  }
+
+  const getDificuldadeColor = (dificuldade) => {
+    switch (dificuldade) {
+      case 'Facil': return 'text-green-600 bg-green-100'
+      case 'Medio': return 'text-yellow-600 bg-yellow-100'
+      case 'Dificil': return 'text-red-600 bg-red-100'
+      default: return 'text-gray-600 bg-gray-100'
+    }
+  }
+
+  return (
+    <div className="min-h-screen bg-gray-50">
+      {/* Header */}
+      <div className="bg-white shadow-sm border-b">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="flex items-center justify-between h-16">
+            <div className="flex items-center space-x-4">
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => navigate('/admin/dashboard')}
+                className="flex items-center space-x-1"
+              >
+                <ArrowLeft className="h-4 w-4" />
+                <span>Voltar</span>
+              </Button>
+              <div className="flex items-center space-x-2">
+                <Target className="h-6 w-6 text-blue-600" />
+                <h1 className="text-xl font-semibold text-gray-900">
+                  Gerenciar Questões
+                </h1>
+              </div>
+            </div>
+            
+            <Button
+              onClick={() => {
+                resetForm()
+                setShowCreateModal(true)
+              }}
+              className="flex items-center space-x-2"
+            >
+              <Plus className="h-4 w-4" />
+              <span>Nova Questão</span>
+            </Button>
+          </div>
+        </div>
+      </div>
+
+      {/* Main Content */}
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        {/* Alerts */}
+        {error && (
+          <Alert variant="destructive" className="mb-6">
+            <AlertTriangle className="h-4 w-4" />
+            <AlertDescription>{error}</AlertDescription>
+          </Alert>
+        )}
+
+        {success && (
+          <Alert className="mb-6 border-green-200 bg-green-50">
+            <CheckCircle className="h-4 w-4 text-green-600" />
+            <AlertDescription className="text-green-800">{success}</AlertDescription>
+          </Alert>
+        )}
+
+        {/* Filters and Search */}
+        <Card className="mb-6">
+          <CardHeader>
+            <CardTitle className="flex items-center space-x-2">
+              <Filter className="h-5 w-5" />
+              <span>Filtros e Busca</span>
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
+              <div className="lg:col-span-2">
+                <Label htmlFor="search">Buscar</Label>
+                <div className="relative">
+                  <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+                  <Input
+                    id="search"
+                    placeholder="Buscar por enunciado ou disciplina..."
+                    value={search}
+                    onChange={handleSearchChange}
+                    className="pl-10"
+                  />
+                </div>
+              </div>
+              
+              <div>
+                <Label>Área de Conhecimento</Label>
+                <Select value={filtros.area} onValueChange={(value) => handleFilterChange('area', value)}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Todas as áreas" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="">Todas as áreas</SelectItem>
+                    {areas.map(area => (
+                      <SelectItem key={area} value={area}>{area}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              
+              <div>
+                <Label>Dificuldade</Label>
+                <Select value={filtros.dificuldade} onValueChange={(value) => handleFilterChange('dificuldade', value)}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Todas" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="">Todas</SelectItem>
+                    {dificuldades.map(dif => (
+                      <SelectItem key={dif} value={dif}>{dif}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              
+              <div>
+                <Label>Disciplina</Label>
+                <Input
+                  placeholder="Disciplina..."
+                  value={filtros.disciplina}
+                  onChange={(e) => handleFilterChange('disciplina', e.target.value)}
+                />
+              </div>
+            </div>
+            
+            <div className="mt-4 text-sm text-gray-600">
+              Total: {pagination.total} questões encontradas
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Questions Table */}
+        <Card>
+          <CardHeader>
+            <CardTitle>Lista de Questões</CardTitle>
+          </CardHeader>
+          <CardContent>
+            {loading ? (
+              <div className="flex items-center justify-center py-8">
+                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+              </div>
+            ) : questoes.length === 0 ? (
+              <div className="text-center py-8 text-gray-500">
+                Nenhuma questão encontrada
+              </div>
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="w-full">
+                  <thead>
+                    <tr className="border-b">
+                      <th className="text-left py-3 px-4 font-medium text-gray-900">ID</th>
+                      <th className="text-left py-3 px-4 font-medium text-gray-900">Enunciado</th>
+                      <th className="text-left py-3 px-4 font-medium text-gray-900">Área</th>
+                      <th className="text-left py-3 px-4 font-medium text-gray-900">Disciplina</th>
+                      <th className="text-left py-3 px-4 font-medium text-gray-900">Dificuldade</th>
+                      <th className="text-left py-3 px-4 font-medium text-gray-900">Resposta</th>
+                      <th className="text-left py-3 px-4 font-medium text-gray-900">Ações</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {questoes.map((questao) => (
+                      <tr key={questao.id} className="border-b hover:bg-gray-50">
+                        <td className="py-3 px-4 text-sm font-medium text-gray-900">
+                          #{questao.id}
+                        </td>
+                        <td className="py-3 px-4 text-sm text-gray-600 max-w-md">
+                          <div className="truncate">
+                            {questao.enunciado_resumido || questao.enunciado}
+                          </div>
+                        </td>
+                        <td className="py-3 px-4 text-sm text-gray-600">
+                          {questao.area_conhecimento}
+                        </td>
+                        <td className="py-3 px-4 text-sm text-gray-600">
+                          {questao.disciplina}
+                        </td>
+                        <td className="py-3 px-4">
+                          <span className={`px-2 py-1 rounded-full text-xs font-medium ${getDificuldadeColor(questao.dificuldade)}`}>
+                            {questao.dificuldade}
+                          </span>
+                        </td>
+                        <td className="py-3 px-4 text-sm font-medium text-gray-900">
+                          {questao.resposta_correta}
+                        </td>
+                        <td className="py-3 px-4">
+                          <div className="flex items-center space-x-2">
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => openViewModal(questao)}
+                              className="h-8 w-8 p-0"
+                            >
+                              <Eye className="h-4 w-4" />
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => openEditModal(questao)}
+                              className="h-8 w-8 p-0"
+                            >
+                              <Edit className="h-4 w-4" />
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => handleDeleteQuestao(questao.id)}
+                              className="h-8 w-8 p-0 text-red-600 hover:text-red-800"
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </Button>
+                          </div>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+
+            {/* Pagination */}
+            {pagination.pages > 1 && (
+              <div className="flex items-center justify-between mt-6 pt-4 border-t">
+                <div className="text-sm text-gray-600">
+                  Página {pagination.page} de {pagination.pages}
+                </div>
+                
+                <div className="flex items-center space-x-2">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => changePage(pagination.page - 1)}
+                    disabled={!pagination.has_prev}
+                    className="flex items-center space-x-1"
+                  >
+                    <ChevronLeft className="h-4 w-4" />
+                    <span>Anterior</span>
+                  </Button>
+                  
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => changePage(pagination.page + 1)}
+                    disabled={!pagination.has_next}
+                    className="flex items-center space-x-1"
+                  >
+                    <span>Próxima</span>
+                    <ChevronRight className="h-4 w-4" />
+                  </Button>
+                </div>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Create Modal */}
+      <Dialog open={showCreateModal} onOpenChange={setShowCreateModal}>
+        <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Criar Nova Questão</DialogTitle>
+          </DialogHeader>
+          
+          <form onSubmit={handleCreateQuestao} className="space-y-6">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <Label htmlFor="area_conhecimento">Área de Conhecimento *</Label>
+                <Select 
+                  value={formData.area_conhecimento} 
+                  onValueChange={(value) => setFormData(prev => ({ ...prev, area_conhecimento: value }))}
+                  required
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Selecione a área" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {areas.map(area => (
+                      <SelectItem key={area} value={area}>{area}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              
+              <div>
+                <Label htmlFor="disciplina">Disciplina *</Label>
+                <Input
+                  id="disciplina"
+                  value={formData.disciplina}
+                  onChange={(e) => setFormData(prev => ({ ...prev, disciplina: e.target.value }))}
+                  placeholder="Ex: Português, Matemática..."
+                  required
+                />
+              </div>
+              
+              <div>
+                <Label htmlFor="dificuldade">Dificuldade *</Label>
+                <Select 
+                  value={formData.dificuldade} 
+                  onValueChange={(value) => setFormData(prev => ({ ...prev, dificuldade: value }))}
+                  required
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Selecione a dificuldade" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {dificuldades.map(dif => (
+                      <SelectItem key={dif} value={dif}>{dif}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              
+              <div>
+                <Label htmlFor="resposta_correta">Resposta Correta *</Label>
+                <Select 
+                  value={formData.resposta_correta} 
+                  onValueChange={(value) => setFormData(prev => ({ ...prev, resposta_correta: value }))}
+                  required
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Selecione a resposta" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {alternativaLabels.map(label => (
+                      <SelectItem key={label} value={label}>{label}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+
+            <div>
+              <Label htmlFor="enunciado">Enunciado *</Label>
+              <Textarea
+                id="enunciado"
+                value={formData.enunciado}
+                onChange={(e) => setFormData(prev => ({ ...prev, enunciado: e.target.value }))}
+                placeholder="Digite o enunciado da questão..."
+                rows={4}
+                required
+              />
+            </div>
+
+            <div>
+              <Label>Alternativas *</Label>
+              <div className="space-y-3">
+                {alternativaLabels.map((label, index) => (
+                  <div key={label} className="flex items-center space-x-3">
+                    <div className="w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center text-sm font-medium text-blue-600">
+                      {label}
+                    </div>
+                    <Input
+                      value={formData.alternativas[index]}
+                      onChange={(e) => {
+                        const newAlternativas = [...formData.alternativas]
+                        newAlternativas[index] = e.target.value
+                        setFormData(prev => ({ ...prev, alternativas: newAlternativas }))
+                      }}
+                      placeholder={`Alternativa ${label}`}
+                      required
+                    />
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <Label htmlFor="fonte">Fonte</Label>
+                <Input
+                  id="fonte"
+                  value={formData.fonte}
+                  onChange={(e) => setFormData(prev => ({ ...prev, fonte: e.target.value }))}
+                  placeholder="Ex: ENEM 2023"
+                />
+              </div>
+              
+              <div>
+                <Label htmlFor="ano">Ano</Label>
+                <Input
+                  id="ano"
+                  type="number"
+                  value={formData.ano}
+                  onChange={(e) => setFormData(prev => ({ ...prev, ano: e.target.value }))}
+                  placeholder="Ex: 2023"
+                />
+              </div>
+            </div>
+
+            <div>
+              <Label htmlFor="explicacao">Explicação</Label>
+              <Textarea
+                id="explicacao"
+                value={formData.explicacao}
+                onChange={(e) => setFormData(prev => ({ ...prev, explicacao: e.target.value }))}
+                placeholder="Explicação da resposta correta (opcional)..."
+                rows={3}
+              />
+            </div>
+
+            <div className="flex justify-end space-x-3">
+              <Button type="button" variant="outline" onClick={() => setShowCreateModal(false)}>
+                Cancelar
+              </Button>
+              <Button type="submit">
+                Criar Questão
+              </Button>
+            </div>
+          </form>
+        </DialogContent>
+      </Dialog>
+
+      {/* Edit Modal */}
+      <Dialog open={showEditModal} onOpenChange={setShowEditModal}>
+        <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Editar Questão #{selectedQuestao?.id}</DialogTitle>
+          </DialogHeader>
+          
+          <form onSubmit={handleEditQuestao} className="space-y-6">
+            {/* Same form content as create modal */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <Label htmlFor="edit_area_conhecimento">Área de Conhecimento *</Label>
+                <Select 
+                  value={formData.area_conhecimento} 
+                  onValueChange={(value) => setFormData(prev => ({ ...prev, area_conhecimento: value }))}
+                  required
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Selecione a área" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {areas.map(area => (
+                      <SelectItem key={area} value={area}>{area}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              
+              <div>
+                <Label htmlFor="edit_disciplina">Disciplina *</Label>
+                <Input
+                  id="edit_disciplina"
+                  value={formData.disciplina}
+                  onChange={(e) => setFormData(prev => ({ ...prev, disciplina: e.target.value }))}
+                  placeholder="Ex: Português, Matemática..."
+                  required
+                />
+              </div>
+              
+              <div>
+                <Label htmlFor="edit_dificuldade">Dificuldade *</Label>
+                <Select 
+                  value={formData.dificuldade} 
+                  onValueChange={(value) => setFormData(prev => ({ ...prev, dificuldade: value }))}
+                  required
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Selecione a dificuldade" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {dificuldades.map(dif => (
+                      <SelectItem key={dif} value={dif}>{dif}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              
+              <div>
+                <Label htmlFor="edit_resposta_correta">Resposta Correta *</Label>
+                <Select 
+                  value={formData.resposta_correta} 
+                  onValueChange={(value) => setFormData(prev => ({ ...prev, resposta_correta: value }))}
+                  required
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Selecione a resposta" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {alternativaLabels.map(label => (
+                      <SelectItem key={label} value={label}>{label}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+
+            <div>
+              <Label htmlFor="edit_enunciado">Enunciado *</Label>
+              <Textarea
+                id="edit_enunciado"
+                value={formData.enunciado}
+                onChange={(e) => setFormData(prev => ({ ...prev, enunciado: e.target.value }))}
+                placeholder="Digite o enunciado da questão..."
+                rows={4}
+                required
+              />
+            </div>
+
+            <div>
+              <Label>Alternativas *</Label>
+              <div className="space-y-3">
+                {alternativaLabels.map((label, index) => (
+                  <div key={label} className="flex items-center space-x-3">
+                    <div className="w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center text-sm font-medium text-blue-600">
+                      {label}
+                    </div>
+                    <Input
+                      value={formData.alternativas[index]}
+                      onChange={(e) => {
+                        const newAlternativas = [...formData.alternativas]
+                        newAlternativas[index] = e.target.value
+                        setFormData(prev => ({ ...prev, alternativas: newAlternativas }))
+                      }}
+                      placeholder={`Alternativa ${label}`}
+                      required
+                    />
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <Label htmlFor="edit_fonte">Fonte</Label>
+                <Input
+                  id="edit_fonte"
+                  value={formData.fonte}
+                  onChange={(e) => setFormData(prev => ({ ...prev, fonte: e.target.value }))}
+                  placeholder="Ex: ENEM 2023"
+                />
+              </div>
+              
+              <div>
+                <Label htmlFor="edit_ano">Ano</Label>
+                <Input
+                  id="edit_ano"
+                  type="number"
+                  value={formData.ano}
+                  onChange={(e) => setFormData(prev => ({ ...prev, ano: e.target.value }))}
+                  placeholder="Ex: 2023"
+                />
+              </div>
+            </div>
+
+            <div>
+              <Label htmlFor="edit_explicacao">Explicação</Label>
+              <Textarea
+                id="edit_explicacao"
+                value={formData.explicacao}
+                onChange={(e) => setFormData(prev => ({ ...prev, explicacao: e.target.value }))}
+                placeholder="Explicação da resposta correta (opcional)..."
+                rows={3}
+              />
+            </div>
+
+            <div className="flex justify-end space-x-3">
+              <Button type="button" variant="outline" onClick={() => setShowEditModal(false)}>
+                Cancelar
+              </Button>
+              <Button type="submit">
+                Salvar Alterações
+              </Button>
+            </div>
+          </form>
+        </DialogContent>
+      </Dialog>
+
+      {/* View Modal */}
+      <Dialog open={showViewModal} onOpenChange={setShowViewModal}>
+        <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Visualizar Questão #{selectedQuestao?.id}</DialogTitle>
+          </DialogHeader>
+          
+          {selectedQuestao && (
+            <div className="space-y-6">
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
+                <div>
+                  <span className="font-medium text-gray-600">Área:</span>
+                  <p>{selectedQuestao.area_conhecimento}</p>
+                </div>
+                <div>
+                  <span className="font-medium text-gray-600">Disciplina:</span>
+                  <p>{selectedQuestao.disciplina}</p>
+                </div>
+                <div>
+                  <span className="font-medium text-gray-600">Dificuldade:</span>
+                  <span className={`px-2 py-1 rounded-full text-xs font-medium ${getDificuldadeColor(selectedQuestao.dificuldade)}`}>
+                    {selectedQuestao.dificuldade}
+                  </span>
+                </div>
+                <div>
+                  <span className="font-medium text-gray-600">Resposta:</span>
+                  <p className="font-bold text-blue-600">{selectedQuestao.resposta_correta}</p>
+                </div>
+              </div>
+
+              <div>
+                <h4 className="font-medium text-gray-900 mb-2">Enunciado:</h4>
+                <div className="bg-gray-50 p-4 rounded-lg">
+                  <p className="whitespace-pre-wrap">{selectedQuestao.enunciado}</p>
+                </div>
+              </div>
+
+              <div>
+                <h4 className="font-medium text-gray-900 mb-3">Alternativas:</h4>
+                <div className="space-y-3">
+                  {selectedQuestao.alternativas?.map((alternativa, index) => (
+                    <div 
+                      key={index} 
+                      className={`flex items-start space-x-3 p-3 rounded-lg ${
+                        alternativaLabels[index] === selectedQuestao.resposta_correta 
+                          ? 'bg-green-50 border border-green-200' 
+                          : 'bg-gray-50'
+                      }`}
+                    >
+                      <div className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-medium ${
+                        alternativaLabels[index] === selectedQuestao.resposta_correta
+                          ? 'bg-green-500 text-white'
+                          : 'bg-gray-200 text-gray-600'
+                      }`}>
+                        {alternativaLabels[index]}
+                      </div>
+                      <p className="flex-1">{alternativa}</p>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              {selectedQuestao.explicacao && (
+                <div>
+                  <h4 className="font-medium text-gray-900 mb-2">Explicação:</h4>
+                  <div className="bg-blue-50 p-4 rounded-lg">
+                    <p className="whitespace-pre-wrap">{selectedQuestao.explicacao}</p>
+                  </div>
+                </div>
+              )}
+
+              {(selectedQuestao.fonte || selectedQuestao.ano) && (
+                <div className="grid grid-cols-2 gap-4 text-sm">
+                  {selectedQuestao.fonte && (
+                    <div>
+                      <span className="font-medium text-gray-600">Fonte:</span>
+                      <p>{selectedQuestao.fonte}</p>
+                    </div>
+                  )}
+                  {selectedQuestao.ano && (
+                    <div>
+                      <span className="font-medium text-gray-600">Ano:</span>
+                      <p>{selectedQuestao.ano}</p>
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
+    </div>
+  )
+}
+
+export default AdminQuestoes
+

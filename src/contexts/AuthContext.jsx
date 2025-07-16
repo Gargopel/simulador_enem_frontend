@@ -14,7 +14,7 @@ export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(null)
   const [loading, setLoading] = useState(true)
 
-  const API_BASE_URL = 'https://77h9ikczy9em.manus.space'
+ const API_BASE_URL = "https://5001-iubokf401j1pqbe8vstig-2b848cf1.manusvm.computer"
 
   useEffect(() => {
     // Verificar se há token salvo no localStorage

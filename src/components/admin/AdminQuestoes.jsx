@@ -59,12 +59,7 @@ const AdminQuestoes = () => {
     ano: ''
   })
 
-  const API_BASE_URL = (
-    process.env.NODE_ENV === "production"
-      ? "https://58hpi8c7z355.manus.space"
-      : "http://localhost:5001"
-  )
-
+  const API_BASE_URL = "https://5001-iubokf401j1pqbe8vstig-2b848cf1.manusvm.computer"
   const areas = ['Linguagens', 'Ciências Humanas', 'Ciências da Natureza', 'Matemática']
   const dificuldades = ['Facil', 'Medio', 'Dificil']
   const alternativaLabels = ['A', 'B', 'C', 'D', 'E']
@@ -229,7 +224,7 @@ const AdminQuestoes = () => {
       dificuldade: questao.dificuldade,
       explicacao: questao.explicacao || '',
       fonte: questao.fonte || '',
-      ano: questao.ano || ''
+      ano: ''
     })
     setShowEditModal(true)
   }
@@ -338,7 +333,6 @@ const AdminQuestoes = () => {
                     <SelectValue placeholder="Todas as áreas" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="">Todas as áreas</SelectItem>
                     {areas.map(area => (
                       <SelectItem key={area} value={area}>{area}</SelectItem>
                     ))}
@@ -353,7 +347,6 @@ const AdminQuestoes = () => {
                     <SelectValue placeholder="Todas" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="">Todas</SelectItem>
                     {dificuldades.map(dif => (
                       <SelectItem key={dif} value={dif}>{dif}</SelectItem>
                     ))}
@@ -910,4 +903,5 @@ const AdminQuestoes = () => {
 }
 
 export default AdminQuestoes
+
 
