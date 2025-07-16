@@ -1,0 +1,7 @@
+/register /index.html 200
+/dashboard /index.html 200
+/simulado/* /index.html 200
+/resultado/* /index.html 200
+/historico /index.html 200
+/dicas /index.html 200
+
